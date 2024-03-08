@@ -41,9 +41,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   late GoogleMapController mapController;
   TextEditingController destinationController = TextEditingController();
+  TextEditingController initialLocationController = TextEditingController();
   LatLng destinationCoordinates = const LatLng(37.7749, -122.4194);
   LatLng currentLocation = LatLng(37.7749, -122.4194);
   Polyline? _routePolyline;
+
+  bool isDestinationEntered = false;
+  bool isInitialLocationEntered = false;
 
   @override
   void initState() {
@@ -101,7 +105,40 @@ class _MyHomePageState extends State<MyHomePage> {
     // Handle case where input is empty
     print('Input is empty');
   }
+  }
+
+  // Method to handle changing the initial location
+Future<void> changeInitialLocation(String input) async {
+  if (input.isNotEmpty) {
+    try {
+      List<geocoding.Location> locations =
+          await geocoding.locationFromAddress(input);
+      if (locations.isNotEmpty) {
+        geocoding.Location location = locations.first;
+        LatLng newInitialLocation = LatLng(location.latitude, location.longitude);
+        setState(() {
+          currentLocation = newInitialLocation;
+        });
+
+        mapController.animateCamera(CameraUpdate.newLatLngZoom(
+            currentLocation, 12.0));
+
+        // Update the route with the new initial location
+        _getAndDrawRoute(currentLocation, destinationCoordinates);
+      } else {
+        // Handle case where no location was found
+        print('No location found for the input: $input');
+      }
+    } catch (e) {
+      // Handle any errors that might occur during geocoding
+      print('Error geocoding the input: $e');
+    }
+  } else {
+    // Handle case where input is empty
+    print('Input is empty');
+  }
 }
+
 
 
 
@@ -163,6 +200,20 @@ List<LatLng> _decodePolyline(String polyline) {
       ),
       body: Column(
         children: <Widget>[
+          if (isDestinationEntered || isInitialLocationEntered)
+             TextField(
+          controller: initialLocationController,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+            labelText: 'Enter initial location',
+          ),
+          onSubmitted: (value) {
+            changeInitialLocation(value);
+            setState(() {
+              isInitialLocationEntered = true;
+            });
+          },
+        ),
           TextField(
             controller: destinationController,
             decoration: InputDecoration(
@@ -171,6 +222,9 @@ List<LatLng> _decodePolyline(String polyline) {
             ),
             onSubmitted: (value) {
               goToDestination(value);
+              setState(() {
+                isDestinationEntered = true;
+              });
             },
           ),
           Expanded(
